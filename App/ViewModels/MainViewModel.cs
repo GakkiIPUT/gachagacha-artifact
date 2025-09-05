@@ -210,6 +210,7 @@ namespace Gacha.ViewModels
             _setFilter.Count > 0 ? $"{L_SetFilterLabel}({_setFilter.Count})" : L_SetFilterLabel;
 
         public ICommand OpenSetFilterCommand => new RelayCommand(_ => OpenSetFilter());
+        public ICommand PickOcrRegionCommand => new RelayCommand(_ => PickOcrRegion());
 
         // 言語（既定：日本語）
         string _language = "ja";
@@ -734,6 +735,7 @@ namespace Gacha.ViewModels
             _ocrW = 600,
             _ocrH = 400;
         IOcrEngine? _ocr;
+        string _lastOcrSlot = "flower";
 
         public MainViewModel()
         {
@@ -760,16 +762,71 @@ namespace Gacha.ViewModels
             try
             {
                 using var bmp = CaptureService.Capture(_ocrX, _ocrY, _ocrW, _ocrH);
-                if (_ocr == null || !_ocr.IsReady)
-                {
-                    StatusText = "OCR not ready（tessdata 未配置の可能性）";
-                    return;
-                }
                 var code = MapLangToTess(_language);
                 var res = _ocr.Recognize(bmp, code);
-                // まずはテキストをそのまま表示（後でパーサに渡す）
-                var oneline = (res.Text ?? "").Replace("\r", " ").Replace("\n", " | ");
-                StatusText = $"OCR: {oneline}";
+                // 解析（サブステのみ）
+                var parsed = OcrParserService.Parse(res.Text ?? "", _language);
+                if (!parsed.Any)
+                {
+                    StatusText = "OCR: サブステが検出できませんでした";
+                    return;
+                }
+
+                    var previewCore = $"CR {parsed.CR:F1}% / CD {parsed.CD:F1}% / ATK% {parsed.ATKp:F1} / HP% {parsed.HPp:F1} / DEF% {parsed.DEFp:F1} / EM {parsed.EM:F0}";
+                    var extras = new System.Collections.Generic.List<string>();
+                    if (parsed.ER  > 0) extras.Add($"ER {parsed.ER:F1}%");
+                    if (parsed.HPf > 0) extras.Add($"HP {parsed.HPf:F0}");
+                    if (parsed.ATKf> 0) extras.Add($"ATK {parsed.ATKf:F0}");
+                    if (parsed.DEFf> 0) extras.Add($"DEF {parsed.DEFf:F0}");
+                    var preview = extras.Count>0 ? $"{previewCore} | {string.Join(" / ", extras)}" : previewCore;
+
+                if (
+                    MessageBox.Show(
+                        $"以下で追加しますか？\n{preview}",
+                        "OCR取り込み",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question
+                    ) != MessageBoxResult.Yes
+                )
+                {
+                    StatusText = "OCR: キャンセル";
+                    return;
+                }
+                // まず部位を選んでもらう（スキップ可）
+                string slotKey = "unknown";
+                var slotDlg = new OcrSlotDialog(_language, _lastOcrSlot) { Owner = Application.Current.MainWindow };
+                if (slotDlg.ShowDialog() == true && !string.IsNullOrEmpty(slotDlg.SlotKey))
+                {
+                    slotKey = slotDlg.SlotKey!;
+                    _lastOcrSlot = slotKey;
+                }
+                var (paths, hasImg) = ImageProvider.Resolve("Unknown", slotKey);
+
+                var vm = new ArtifactVM
+                {
+                    SetKey = "Unknown",
+                    SlotKey = "slotKey",
+                    Rarity = 5,
+                    Level = 0,
+                    MainText = "", // メインはスコア外
+                    CR = parsed.CR,
+                    CD = parsed.CD,
+                    ATKp = parsed.ATKp,
+                    HPp = parsed.HPp,
+                    DEFp = parsed.DEFp,
+                    EM = parsed.EM,
+                    IsLocked = false,
+                    ImagePath = paths.Path,
+                    PlaceholderPath = paths.Placeholder,
+                    HasImage = hasImg,
+                };
+                int merged = 0;
+                AddOrMerge(vm, ParsePreset(SelectedPreset), ref merged);
+                ApplyFilter();
+                ApplySort();
+                Raise(nameof(SummaryText));
+                StatusText =
+                    merged == 0 ? $"OCR追加: +1 / {preview}" : $"OCR追加: merged / {preview}";
             }
             catch (Exception ex)
             {
@@ -790,6 +847,27 @@ namespace Gacha.ViewModels
                 _ocrW = dlg.W;
                 _ocrH = dlg.H;
                 StatusText = $"OCR領域: X={_ocrX}, Y={_ocrY}, W={_ocrW}, H={_ocrH}";
+            }
+        }
+
+        void PickOcrRegion()
+        {
+            var dlg = new OcrOverlayPicker
+            {
+                Owner = Application.Current.MainWindow,
+                Topmost = true,
+            };
+            if (dlg.ShowDialog() == true)
+            {
+                _ocrX = dlg.X;
+                _ocrY = dlg.Y;
+                _ocrW = dlg.W;
+                _ocrH = dlg.H;
+                StatusText = $"OCR領域(ドラッグ): X={_ocrX}, Y={_ocrY}, W={_ocrW}, H={_ocrH}";
+            }
+            else
+            {
+                StatusText = "OCR領域選択: キャンセル";
             }
         }
     }

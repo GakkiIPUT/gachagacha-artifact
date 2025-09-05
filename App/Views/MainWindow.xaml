@@ -93,6 +93,7 @@
              <Button Content="{Binding L_ImportGood}" Command="{Binding ImportGoodCommand}" />
              <Button Content="OCR(1件)" Command="{Binding OcrOnceCommand}" Margin="8,0,0,0"/>
              <Button Content="領域設定" Command="{Binding OpenOcrRegionCommand}" Margin="4,0,0,0"/>
+             <Button Content="領域ドラッグ選択" Command="{Binding PickOcrRegionCommand}" Margin="4,0,0,0"/>
              <Button Content="{Binding L_OpenProject}" Command="{Binding OpenProjectCommand}" Margin="8,0,0,0"/>
              <Button Content="{Binding L_SaveProject}" Command="{Binding SaveProjectCommand}" Margin="8,0,0,0"/>
              <Button Content="{Binding L_ExportCsv}"  Command="{Binding ExportCsvCommand}" Margin="8,0,0,0"/>
