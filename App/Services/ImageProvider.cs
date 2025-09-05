@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 
 namespace Gacha.Services
 {
@@ -18,5 +19,36 @@ namespace Gacha.Services
             }
             return (new Paths(img, ph), has);
         }
+
+        // 追加: 画像を所定のパスへ保存（上書き可）
+        public static Paths SaveImage(string setKey, string slotKey, string sourceFile)
+        {
+            var baseDir = System.AppDomain.CurrentDomain.BaseDirectory;
+            var dir = Path.Combine(baseDir, "Assets", "images", setKey);
+            Directory.CreateDirectory(dir);
+            var ext = Path.GetExtension(sourceFile);
+            if (string.IsNullOrEmpty(ext)) ext = ".png";
+            var dest = Path.Combine(dir, $"{slotKey}{ext}");
+            File.Copy(sourceFile, dest, overwrite: true);
+            // 直後に Resolve で最新パスを取得
+            var (p, _) = Resolve(setKey, slotKey);
+            return p;
+        }
+
+        public static void OpenImagesFolder()
+        {
+            var baseDir = System.AppDomain.CurrentDomain.BaseDirectory;
+            var dir = Path.Combine(baseDir, "Assets", "images");
+            Directory.CreateDirectory(dir);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = dir,
+                UseShellExecute = true
+            });
+        }
+
+
+
+
     }
 }

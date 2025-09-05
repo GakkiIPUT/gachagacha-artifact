@@ -91,7 +91,10 @@
 
             <!-- 入出力 -->
              <Button Content="{Binding L_ImportGood}" Command="{Binding ImportGoodCommand}" />
+             <Button Content="{Binding L_OpenProject}" Command="{Binding OpenProjectCommand}" Margin="8,0,0,0"/>
+             <Button Content="{Binding L_SaveProject}" Command="{Binding SaveProjectCommand}" Margin="8,0,0,0"/>
              <Button Content="{Binding L_ExportCsv}"  Command="{Binding ExportCsvCommand}" Margin="8,0,0,0"/>
+             <Button Content="画像ひも付け" Command="{Binding OpenMissingImagesCommand}" Margin="8,0,0,0"/>
              <Button Content="{Binding L_Settings}"    Command="{Binding OpenSettingsCommand}" Margin="8,0,0,0"/>
             <TextBlock Margin="16,0,0,0" VerticalAlignment="Center"
                        Text="{Binding StatusText}"/>
@@ -175,20 +178,19 @@
                       EnableRowVirtualization="True" EnableColumnVirtualization="True"
                       HeadersVisibility="Column" GridLinesVisibility="None">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Score" Binding="{Binding Score, StringFormat={}{0:F1}}" SortMemberPath="Score"/>
-                    <DataGridTextColumn Header="Set"   Binding="{Binding SetName}"/>
-                    <DataGridTextColumn Header="Slot"  Binding="{Binding SlotName}"/>
-                    <DataGridTextColumn Header="Rarity" Binding="{Binding Rarity}"/>
-                    <DataGridTextColumn Header="Lv" Binding="{Binding Level}"/>
-                    <DataGridTextColumn Header="Main" Binding="{Binding MainText}"/>
-                    <DataGridTextColumn Header="CR(サブ)" Binding="{Binding CR, StringFormat={}{0:F1}}" SortMemberPath="CR"/>
-                    <DataGridTextColumn Header="CD(サブ)" Binding="{Binding CD, StringFormat={}{0:F1}}" SortMemberPath="CD"/>
-                    <DataGridTextColumn Header="ATK%(サブ)" Binding="{Binding ATKp, StringFormat={}{0:F1}}" SortMemberPath="ATKp"/>
-                    <DataGridTextColumn Header="HP%(サブ)" Binding="{Binding HPp, StringFormat={}{0:F1}}" SortMemberPath="HPp"/>
-                    <DataGridTextColumn Header="DEF%(サブ)" Binding="{Binding DEFp, StringFormat={}{0:F1}}" SortMemberPath="DEFp"/>
-                    <DataGridTextColumn Header="EM(サブ)" Binding="{Binding EM, StringFormat={}{0:F1}}" SortMemberPath="EM"/>
-                    <DataGridTextColumn Header="Lock" Binding="{Binding IsLocked}"/>
-                </DataGrid.Columns>
+                <DataGridTextColumn Header="{Binding L_ColScore}"  Binding="{Binding Score, StringFormat={}{0:F1}}" SortMemberPath="Score"/>
+                <DataGridTextColumn Header="{Binding L_ColSet}"    Binding="{Binding SetName}"/>
+                <DataGridTextColumn Header="{Binding L_ColSlot}"   Binding="{Binding SlotName}"/>
+                <DataGridTextColumn Header="{Binding L_ColRarity}" Binding="{Binding Rarity}"/>
+                <DataGridTextColumn Header="{Binding L_ColLevel}"  Binding="{Binding Level}"/>
+                <DataGridTextColumn Header="{Binding L_ColMain}"   Binding="{Binding MainText}"/>
+                <DataGridTextColumn Header="{Binding L_ColCR}"     Binding="{Binding CR, StringFormat={}{0:F1}}"   SortMemberPath="CR"/>
+                <DataGridTextColumn Header="{Binding L_ColCD}"     Binding="{Binding CD, StringFormat={}{0:F1}}"   SortMemberPath="CD"/>
+                <DataGridTextColumn Header="{Binding L_ColATKp}"   Binding="{Binding ATKp, StringFormat={}{0:F1}}" SortMemberPath="ATKp"/>
+                <DataGridTextColumn Header="{Binding L_ColHPp}"    Binding="{Binding HPp, StringFormat={}{0:F1}}"  SortMemberPath="HPp"/>
+                <DataGridTextColumn Header="{Binding L_ColDEFp}"   Binding="{Binding DEFp, StringFormat={}{0:F1}}" SortMemberPath="DEFp"/>
+                <DataGridTextColumn Header="{Binding L_ColEM}"     Binding="{Binding EM, StringFormat={}{0:F1}}"   SortMemberPath="EM"/>
+                <DataGridTextColumn Header="{Binding L_ColLock}"   Binding="{Binding IsLocked}"/>                </DataGrid.Columns>
             </DataGrid>
         </Grid>
 

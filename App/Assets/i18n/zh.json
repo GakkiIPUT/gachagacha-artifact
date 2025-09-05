@@ -23,6 +23,23 @@
     "ui.clear_all": "全不选",
     "ui.ok": "确定",
     "ui.cancel": "取消",
+    
+  "ui.open_project": "打开(项目)",
+  "ui.save_project": "保存(项目)",
+  "ui.col.score": "分数",
+  "ui.col.set": "套装",
+  "ui.col.slot": "部位",
+  "ui.col.rarity": "稀有",
+  "ui.col.level": "等级",
+  "ui.col.main": "主词条",
+  "ui.col.cr": "暴击率(副)",
+  "ui.col.cd": "暴击伤害(副)",
+  "ui.col.atkp": "攻击%(副)",
+  "ui.col.hpp": "生命%(副)",
+  "ui.col.defp": "防御%(副)",
+  "ui.col.em": "精通(副)",
+  "ui.col.lock": "锁定",
+
 
 
     "slot.flower": "生之花",

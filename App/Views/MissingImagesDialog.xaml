@@ -1,0 +1,36 @@
+<Window x:Class="Gacha.Views.MissingImagesDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="画像ひも付け" Width="720" Height="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip">
+    <DockPanel>
+        <ToolBar DockPanel.Dock="Top">
+            <Button x:Name="BtnOpenFolder" Content="画像フォルダを開く" Click="OpenFolder_Click"/>
+            <Separator/>
+            <Button x:Name="BtnClose" Content="閉じる" IsCancel="True" />
+        </ToolBar>
+
+        <DataGrid x:Name="Grid" AutoGenerateColumns="False" Margin="8"
+                  ItemsSource="{Binding}">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="画像">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Image Source="{Binding PlaceholderPath}" Width="80" Height="80" Stretch="UniformToFill"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="セット" Binding="{Binding SetName}"/>
+                <DataGridTextColumn Header="部位" Binding="{Binding SlotName}"/>
+                <DataGridTemplateColumn Header="操作">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="参照..." Click="Browse_Click" Tag="{Binding}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

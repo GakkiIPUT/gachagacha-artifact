@@ -7,6 +7,7 @@ namespace Gacha.ViewModels
 {
     public sealed class ArtifactVM : INotifyPropertyChanged
     {
+        public long GoodId { get; set; } // GOODの artifact.id（無ければ0）
         public event PropertyChangedEventHandler? PropertyChanged;
 
         void Raise([CallerMemberName] string? n = null) =>
@@ -16,22 +17,22 @@ namespace Gacha.ViewModels
         public string SetKey { get; init; } = "";
         public string SlotKey { get; init; } = ""; // flower/plume/sands/goblet/circlet
         public int Rarity { get; init; }
-        public int Level { get; init; }
-        public string MainText { get; init; } = ""; // 表示のみ（計算はサブのみ）
+        public int Level { get; set; }
+        public string MainText { get; set; } = ""; // 表示のみ（計算はサブのみ）
 
         // サブ（％は 3.9 → 3.9）
-        public double CR { get; init; }
-        public double CD { get; init; }
-        public double ATKp { get; init; }
-        public double HPp { get; init; }
-        public double DEFp { get; init; }
-        public double EM { get; init; }
-        public bool IsLocked { get; init; }
+        public double CR { get; set; }
+        public double CD { get; set; }
+        public double ATKp { get; set; }
+        public double HPp { get; set; }
+        public double DEFp { get; set; }
+        public double EM { get; set; }
+        public bool IsLocked { get; set; }
 
         // 画像
-        public string ImagePath { get; init; } = "";
-        public string PlaceholderPath { get; init; } = "";
-        public bool HasImage { get; init; }
+        public string ImagePath { get; set; } = "";
+        public string PlaceholderPath { get; set; } = "";
+        public bool HasImage { get; set; }
 
         // スコア（表示1桁。内部倍精度）
         double _score;

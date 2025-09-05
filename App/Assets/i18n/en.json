@@ -23,6 +23,23 @@
      "ui.clear_all": "Clear all",
      "ui.ok": "OK",
      "ui.cancel": "Cancel",
+     
+  "ui.open_project": "Open (project)",
+  "ui.save_project": "Save (project)",
+  "ui.col.score": "Score",
+  "ui.col.set": "Set",
+  "ui.col.slot": "Slot",
+  "ui.col.rarity": "Rarity",
+  "ui.col.level": "Lv",
+  "ui.col.main": "Main",
+  "ui.col.cr": "CR (sub)",
+  "ui.col.cd": "CD (sub)",
+  "ui.col.atkp": "ATK% (sub)",
+  "ui.col.hpp": "HP% (sub)",
+  "ui.col.defp": "DEF% (sub)",
+  "ui.col.em": "EM (sub)",
+  "ui.col.lock": "Lock",
+
 
 
 
