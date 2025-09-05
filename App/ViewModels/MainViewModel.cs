@@ -772,13 +772,31 @@ namespace Gacha.ViewModels
                     return;
                 }
 
-                    var previewCore = $"CR {parsed.CR:F1}% / CD {parsed.CD:F1}% / ATK% {parsed.ATKp:F1} / HP% {parsed.HPp:F1} / DEF% {parsed.DEFp:F1} / EM {parsed.EM:F0}";
-                    var extras = new System.Collections.Generic.List<string>();
-                    if (parsed.ER  > 0) extras.Add($"ER {parsed.ER:F1}%");
-                    if (parsed.HPf > 0) extras.Add($"HP {parsed.HPf:F0}");
-                    if (parsed.ATKf> 0) extras.Add($"ATK {parsed.ATKf:F0}");
-                    if (parsed.DEFf> 0) extras.Add($"DEF {parsed.DEFf:F0}");
-                    var preview = extras.Count>0 ? $"{previewCore} | {string.Join(" / ", extras)}" : previewCore;
+                var previewCore =
+                    $"CR {parsed.CR:F1}% / CD {parsed.CD:F1}% / ATK% {parsed.ATKp:F1} / HP% {parsed.HPp:F1} / DEF% {parsed.DEFp:F1} / EM {parsed.EM:F0}";
+                var extras = new System.Collections.Generic.List<string>();
+                if (parsed.ER > 0)
+                    extras.Add($"ER {parsed.ER:F1}%");
+                if (parsed.HPf > 0)
+                    extras.Add($"HP {parsed.HPf:F0}");
+                if (parsed.ATKf > 0)
+                    extras.Add($"ATK {parsed.ATKf:F0}");
+                if (parsed.DEFf > 0)
+                    extras.Add($"DEF {parsed.DEFf:F0}");
+
+                if (!string.IsNullOrWhiteSpace(parsed.SlotLabel))
+                    extras.Add($"Slot:{parsed.SlotLabel}");
+                if (parsed.Level > 0)
+                    extras.Add($"+{parsed.Level}");
+                if (!string.IsNullOrWhiteSpace(parsed.MainStatName))
+                    extras.Add($"Main:{parsed.MainStatName}={parsed.MainStatValue}");
+                if (!string.IsNullOrWhiteSpace(parsed.SetNameCandidate))
+                    extras.Add($"Set? {parsed.SetNameCandidate}");
+
+                var preview =
+                    extras.Count > 0
+                        ? $"{previewCore} | {string.Join(" / ", extras)}"
+                        : previewCore;
 
                 if (
                     MessageBox.Show(
@@ -792,13 +810,20 @@ namespace Gacha.ViewModels
                     StatusText = "OCR: キャンセル";
                     return;
                 }
-                // まず部位を選んでもらう（スキップ可）
-                string slotKey = "unknown";
-                var slotDlg = new OcrSlotDialog(_language, _lastOcrSlot) { Owner = Application.Current.MainWindow };
-                if (slotDlg.ShowDialog() == true && !string.IsNullOrEmpty(slotDlg.SlotKey))
+
+                // 部位：OCRで取れたらそのまま、無ければダイアログ
+                string slotKey = parsed.SlotKey ?? "unknown";
+                if (slotKey == "unknown" || string.IsNullOrEmpty(slotKey))
                 {
-                    slotKey = slotDlg.SlotKey!;
-                    _lastOcrSlot = slotKey;
+                    var slotDlg = new OcrSlotDialog(_language, _lastOcrSlot)
+                    {
+                        Owner = Application.Current.MainWindow,
+                    };
+                    if (slotDlg.ShowDialog() == true && !string.IsNullOrEmpty(slotDlg.SlotKey))
+                    {
+                        slotKey = slotDlg.SlotKey!;
+                        _lastOcrSlot = slotKey;
+                    }
                 }
                 var (paths, hasImg) = ImageProvider.Resolve("Unknown", slotKey);
 
@@ -807,8 +832,8 @@ namespace Gacha.ViewModels
                     SetKey = "Unknown",
                     SlotKey = "slotKey",
                     Rarity = 5,
-                    Level = 0,
-                    MainText = "", // メインはスコア外
+                    Level = parsed.Level,
+                    MainText = parsed.MainStatName ?? "", // スコアには使わないが表示に
                     CR = parsed.CR,
                     CD = parsed.CD,
                     ATKp = parsed.ATKp,
