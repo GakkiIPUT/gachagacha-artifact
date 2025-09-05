@@ -1,0 +1,29 @@
+<Window x:Class="Gacha.Views.SetFilterDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="セット絞り込み" Width="420" Height="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip">
+    <DockPanel>
+       <ToolBar DockPanel.Dock="Top">
+           <TextBox x:Name="SearchBox" Width="200" Margin="0,0,8,0" ToolTip="検索" />
+           <Button x:Name="BtnSelectAll" Content="全選択" Click="SelectAll_Click"/>
+           <Button x:Name="BtnClearAll"  Content="全解除" Margin="6,0,0,0" Click="ClearAll_Click"/>
+           <Separator/>
+           <Button x:Name="BtnOk"     Content="OK" IsDefault="True" Click="Ok_Click"/>
+           <Button x:Name="BtnCancel" Content="キャンセル" IsCancel="True"/>
+       </ToolBar>
+
+        <ListBox x:Name="List"
+                 Margin="8"
+                 SelectionMode="Multiple">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <CheckBox IsChecked="{Binding IsChecked}"
+                              Content="{Binding Name}" Tag="{Binding Key}"
+                              Margin="4"/>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+</Window>
