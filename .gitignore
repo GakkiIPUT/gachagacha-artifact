@@ -1,0 +1,14 @@
+﻿# Build
+bin/
+obj/
+# VS/IDE
+.vs/
+.vscode/
+# User files
+*.user
+*.rsuser
+# Publish
+App/*.PublishSettings
+# OS
+.DS_Store
+Thumbs.db
