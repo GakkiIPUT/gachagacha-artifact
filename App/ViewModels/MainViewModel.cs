@@ -14,11 +14,14 @@ using Gacha.Services.Ocr;
 using Gacha.ViewModels;
 using Gacha.Views;
 using Microsoft.Win32;
-
+using OpenCvSharp;
+using OpenCvSharp.Extensions;
+using System.Drawing;
 namespace Gacha.ViewModels
 {
     public sealed class MainViewModel : INotifyPropertyChanged
     {
+
         // === UI Labels (i18n) ===
         public string L_DisplayImage => LocalizationService.Tr("ui.display_image");
         public string L_SortLabel => LocalizationService.Tr("ui.sort");
@@ -381,7 +384,7 @@ namespace Gacha.ViewModels
                         case "eleMas":
                             EM += v;
                             break;
-                        // ER/固定値は読み飛ばし
+                            // ER/固定値は読み飛ばし
                     }
                 }
             }
@@ -502,12 +505,12 @@ namespace Gacha.ViewModels
                     false,
                     new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true)
                 );
-                sw.WriteLine("Set,Slot,Rarity,Lv,Main,CR,CD,ATK%,HP%,DEF%,EM,Score");
+                sw.WriteLine("Set,Slot,Rarity,Lv,Main,CR,CD,ATK%,HP%,DEF%,EM,ER,HP,ATK,DEF,Score");
                 foreach (var a in Artifacts)
                 {
                     // Mainは念のため二重引用符（既存仕様踏襲）
                     sw.WriteLine(
-                        $"{a.SetName},{a.SlotName},{a.Rarity},{a.Level},\"{a.MainText}\",{a.CR:F1},{a.CD:F1},{a.ATKp:F1},{a.HPp:F1},{a.DEFp:F1},{a.EM:F1},{a.Score:F1}"
+                        $"{a.SetName},{a.SlotName},{a.Rarity},{a.Level},\"{a.MainText}\",{a.CR:F1},{a.CD:F1},{a.ATKp:F1},{a.HPp:F1},{a.DEFp:F1},{a.EM:F1},{a.ER:F1},{a.HPf:F0},{a.ATKf:F0},{a.DEFf:F0},{a.Score:F1}"
                     );
                 }
                 StatusText = $"Exported: {dlg.FileName}";
@@ -736,18 +739,70 @@ namespace Gacha.ViewModels
             _ocrH = 400;
         IOcrEngine? _ocr;
         string _lastOcrSlot = "flower";
+        ArtifactPieceMap? _pieceMap;       // artifact_piece_map.csv
+        ArtifactSetList? _setList;         // artifact_sets.csv
+        ArtifactSubStatList? _subList;     // artifact_substats.csv
+        ArtifactMainStatTable? _mainTable; // artifact_main_stats_5star_levels.csv
+
+        // 追加: プリセット選択（解像度）
+        string _ocrPresetKey = "1920x1080";
+        public string OcrPresetKey
+        {
+            get => _ocrPresetKey;
+            set { _ocrPresetKey = value; Raise(); }
+        }
+        public IEnumerable<string> OcrPresetKeys => OcrLayoutPresets.Keys;
 
         public MainViewModel()
         {
             LocalizationService.SetLanguage(_language);
-            // Tesseract の tessdata を Assets/tessdata 配下に置く前提（後で投入OK）
             var tess = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "tessdata");
-            _ocr = new TesseractOcrEngine(tess); // tessdata 未投入でも例外は内部で握りつぶす
+            _ocr = new TesseractOcrEngine(tess);
+
+            // CSVリソースのロード（出力は Resources 直下）
+            try
+            {
+                var resDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources");
+                var pieceCsv = Path.Combine(resDir, "artifact_piece_map.csv");
+                var setsCsv  = Path.Combine(resDir, "artifact_sets.csv");
+                var subsCsv  = Path.Combine(resDir, "artifact_substats.csv");
+                var mainCsv  = Path.Combine(resDir, "artifact_main_stats_5star_levels.csv");
+
+                if (File.Exists(pieceCsv)) _pieceMap = new ArtifactPieceMap(pieceCsv);
+                if (File.Exists(setsCsv))  _setList  = new ArtifactSetList(setsCsv);
+                if (File.Exists(subsCsv))  _subList  = new ArtifactSubStatList(subsCsv);
+                if (File.Exists(mainCsv))  _mainTable= new ArtifactMainStatTable(mainCsv);
+            }
+            catch
+            {
+                _pieceMap = null;
+                _setList = null;
+                _subList = null;
+                _mainTable = null;
+            }
         }
 
         // OCRボタン
         public ICommand OcrOnceCommand => new RelayCommand(_ => OcrOnce());
         public ICommand OpenOcrRegionCommand => new RelayCommand(_ => OpenOcrRegion());
+        public ICommand OcrByPresetCommand => new RelayCommand(_ => OcrByPreset());
+
+        // 追加: プリセット編集コマンド
+        public ICommand EditOcrPresetCommand => new RelayCommand(_ => EditOcrPreset());
+
+        void EditOcrPreset()
+        {
+            try
+            {
+                var dlg = new Gacha.Views.OcrPresetEditor(OcrPresetKey) { Owner = Application.Current.MainWindow };
+                var ok = dlg.ShowDialog() == true;
+                StatusText = ok ? $"OCRプリセットを保存しました: {OcrPresetKey}" : "OCRプリセット: キャンセル";
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"OCRプリセット編集エラー: {ex.Message}";
+            }
+        }
 
         string MapLangToTess(string lang) =>
             lang switch
@@ -762,42 +817,36 @@ namespace Gacha.ViewModels
             try
             {
                 using var bmp = CaptureService.Capture(_ocrX, _ocrY, _ocrW, _ocrH);
+                using var preprocessed = OcrPreprocess.Preprocess(bmp); // 前処理を追加
                 var code = MapLangToTess(_language);
-                var res = _ocr.Recognize(bmp, code);
-                // 解析（サブステのみ）
-                var parsed = OcrParserService.Parse(res.Text ?? "", _language);
+                var res = _ocr.Recognize(preprocessed, code);
+                MessageBox.Show(res.Text ?? "(null)", "OCR結果テキスト");
+                // 解析（辞書照合あり）
+                var parsed = OcrParserService.Parse(res.Text ?? "", _language, _pieceMap, _setList, _subList, _mainTable);
                 if (!parsed.Any)
                 {
                     StatusText = "OCR: サブステが検出できませんでした";
                     return;
                 }
 
-                var previewCore =
-                    $"CR {parsed.CR:F1}% / CD {parsed.CD:F1}% / ATK% {parsed.ATKp:F1} / HP% {parsed.HPp:F1} / DEF% {parsed.DEFp:F1} / EM {parsed.EM:F0}";
+                // === 取り込みプレビュー（有効サブステ＋上部情報） ===
+                var previewCore = $"CR {parsed.CR:F1}% / CD {parsed.CD:F1}% / ATK% {parsed.ATKp:F1} / HP% {parsed.HPp:F1} / DEF% {parsed.DEFp:F1} / EM {parsed.EM:F0}";
                 var extras = new System.Collections.Generic.List<string>();
-                if (parsed.ER > 0)
-                    extras.Add($"ER {parsed.ER:F1}%");
-                if (parsed.HPf > 0)
-                    extras.Add($"HP {parsed.HPf:F0}");
-                if (parsed.ATKf > 0)
-                    extras.Add($"ATK {parsed.ATKf:F0}");
-                if (parsed.DEFf > 0)
-                    extras.Add($"DEF {parsed.DEFf:F0}");
+                if (parsed.ER > 0) extras.Add($"ER {parsed.ER:F1}%");
+                if (parsed.HPf > 0) extras.Add($"HP {parsed.HPf:F0}");
+                if (parsed.ATKf > 0) extras.Add($"ATK {parsed.ATKf:F0}");
+                if (parsed.DEFf > 0) extras.Add($"DEF {parsed.DEFf:F0}");
+                if (!string.IsNullOrWhiteSpace(parsed.SlotLabel)) extras.Add($"Slot:{parsed.SlotLabel}");
+                if (parsed.Level > 0) extras.Add($"+{parsed.Level}");
+                if (!string.IsNullOrWhiteSpace(parsed.MainStatName)) extras.Add($"Main:{parsed.MainStatName}={parsed.MainStatValue}");
+                if (!string.IsNullOrWhiteSpace(parsed.SetNameCandidate)) extras.Add($"Set? {parsed.SetNameCandidate}");
 
-                if (!string.IsNullOrWhiteSpace(parsed.SlotLabel))
-                    extras.Add($"Slot:{parsed.SlotLabel}");
-                if (parsed.Level > 0)
-                    extras.Add($"+{parsed.Level}");
-                if (!string.IsNullOrWhiteSpace(parsed.MainStatName))
-                    extras.Add($"Main:{parsed.MainStatName}={parsed.MainStatValue}");
-                if (!string.IsNullOrWhiteSpace(parsed.SetNameCandidate))
-                    extras.Add($"Set? {parsed.SetNameCandidate}");
-
-                var preview =
-                    extras.Count > 0
-                        ? $"{previewCore} | {string.Join(" / ", extras)}"
-                        : previewCore;
-
+                var preview = extras.Count > 0 ? $"{previewCore} | {string.Join(" / ", extras)}" : previewCore; 
+                if (MessageBox.Show($"以下で追加しますか？\n{preview}", "OCR取り込み", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                {
+                    StatusText = "OCR: キャンセル";
+                    return;
+                }
                 if (
                     MessageBox.Show(
                         $"以下で追加しますか？\n{preview}",
@@ -810,36 +859,35 @@ namespace Gacha.ViewModels
                     StatusText = "OCR: キャンセル";
                     return;
                 }
-
-                // 部位：OCRで取れたらそのまま、無ければダイアログ
-                string slotKey = parsed.SlotKey ?? "unknown";
-                if (slotKey == "unknown" || string.IsNullOrEmpty(slotKey))
-                {
-                    var slotDlg = new OcrSlotDialog(_language, _lastOcrSlot)
-                    {
-                        Owner = Application.Current.MainWindow,
-                    };
-                    if (slotDlg.ShowDialog() == true && !string.IsNullOrEmpty(slotDlg.SlotKey))
-                    {
-                        slotKey = slotDlg.SlotKey!;
-                        _lastOcrSlot = slotKey;
-                    }
-                }
+                StatusText = $"OCR: ER={parsed.ER}, HPf={parsed.HPf}, ATKf={parsed.ATKf}, DEFf={parsed.DEFf}";
+                string slotKey = parsed.SlotKey
+                                         ?? GuessSlotFromMain(parsed.MainStatName, parsed.MainStatValue)
+                                         ?? "unknown";
+                _lastOcrSlot = slotKey;
                 var (paths, hasImg) = ImageProvider.Resolve("Unknown", slotKey);
 
                 var vm = new ArtifactVM
                 {
                     SetKey = "Unknown",
-                    SlotKey = "slotKey",
+                    SlotKey = slotKey,
                     Rarity = 5,
                     Level = parsed.Level,
-                    MainText = parsed.MainStatName ?? "", // スコアには使わないが表示に
+                    MainText = parsed.MainStatName ?? "", // 表示用（空なら OcrMainName を利用）
                     CR = parsed.CR,
                     CD = parsed.CD,
                     ATKp = parsed.ATKp,
                     HPp = parsed.HPp,
                     DEFp = parsed.DEFp,
                     EM = parsed.EM,
+                    // 追加: 確認用のOCR派生データ
+                    OcrSlotLabel = parsed.SlotLabel,
+                    OcrSetCandidate = parsed.SetNameCandidate,
+                    OcrMainName = parsed.MainStatName,
+                    OcrMainValue = parsed.MainStatValue,
+                    ER = parsed.ER,
+                    HPf = parsed.HPf,
+                    ATKf = parsed.ATKf,
+                    DEFf = parsed.DEFf,
                     IsLocked = false,
                     ImagePath = paths.Path,
                     PlaceholderPath = paths.Placeholder,
@@ -856,6 +904,117 @@ namespace Gacha.ViewModels
             catch (Exception ex)
             {
                 StatusText = $"OCR error: {ex.Message}";
+            }
+        }
+
+        // プリセットOCR（矩形ごとに認識 → テキスト結合 → Parse）
+        void OcrByPreset()
+        {
+            try
+            {
+                var preset = OcrLayoutPresets.Get(OcrPresetKey);
+                if (preset == null)
+                {
+                    StatusText = $"OCR Preset not found: {OcrPresetKey}";
+                    return;
+                }
+
+                string? ReadRegion(string name)
+                {
+                    if (!preset.Regions.TryGetValue(name, out var r)) return null;
+                    using var bmp = CaptureService.Capture(r.X, r.Y, r.Width, r.Height);
+                    using var pre = OcrPreprocess.Preprocess(bmp);
+                    var code = MapLangToTess(_language);
+                    var res = _ocr!.Recognize(pre, code);
+                    return res.Text;
+                }
+
+                var title     = ReadRegion("Title");
+                var slotLabel = ReadRegion("SlotLabel");
+                var mainName  = ReadRegion("MainName");
+                var mainValue = ReadRegion("MainValue");
+                var levelText = ReadRegion("Level");
+                var setBlock  = ReadRegion("SetBlock");
+                var subBlock  = ReadRegion("SubBlock");
+
+                var lines = new List<string>(8);
+                if (!string.IsNullOrWhiteSpace(title)) lines.Add(title!.Trim());
+                if (!string.IsNullOrWhiteSpace(slotLabel)) lines.Add(slotLabel!.Trim());
+                if (!string.IsNullOrWhiteSpace(mainName)) lines.Add(mainName!.Trim());
+                if (!string.IsNullOrWhiteSpace(mainValue)) lines.Add(mainValue!.Trim());
+                if (!string.IsNullOrWhiteSpace(levelText)) lines.Add(levelText!.Trim());
+                if (!string.IsNullOrWhiteSpace(setBlock)) lines.Add(setBlock!.Trim());
+                if (!string.IsNullOrWhiteSpace(subBlock)) lines.Add(subBlock!.Trim());
+                var raw = string.Join("\n", lines);
+
+                var parsed = OcrParserService.Parse(raw, _language, _pieceMap, _setList, _subList, _mainTable);
+
+                if (string.IsNullOrWhiteSpace(parsed.MainStatName) || parsed.MainStatValue <= 0 || string.IsNullOrWhiteSpace(parsed.SetNameCandidate))
+                {
+                    StatusText = "OCR: メイン種別/値またはセット名の取得に失敗しました";
+                }
+
+                var previewCore = $"Main:{parsed.MainStatName}={parsed.MainStatValue} | CR {parsed.CR:F1}% / CD {parsed.CD:F1}% / ATK% {parsed.ATKp:F1} / HP% {parsed.HPp:F1} / DEF% {parsed.DEFp:F1} / EM {parsed.EM:F0}";
+                var extras = new List<string>();
+                if (!string.IsNullOrWhiteSpace(parsed.SetNameCandidate)) extras.Add($"Set:{parsed.SetNameCandidate}");
+                if (!string.IsNullOrWhiteSpace(parsed.SlotLabel)) extras.Add($"Slot:{parsed.SlotLabel}");
+                if (parsed.Level > 0) extras.Add($"+{parsed.Level}");
+                if (parsed.ER > 0) extras.Add($"ER {parsed.ER:F1}%");
+                if (parsed.HPf > 0) extras.Add($"HP {parsed.HPf:F0}");
+                if (parsed.ATKf > 0) extras.Add($"ATK {parsed.ATKf:F0}");
+                if (parsed.DEFf > 0) extras.Add($"DEF {parsed.DEFf:F0}");
+                var preview = extras.Count > 0 ? $"{previewCore} | {string.Join(" / ", extras)}" : previewCore;
+
+                if (MessageBox.Show($"以下で追加しますか？\n{preview}", "OCR取り込み(プリセット)", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                {
+                    StatusText = "OCR: キャンセル";
+                    return;
+                }
+
+                string slotKey = parsed.SlotKey
+                                 ?? GuessSlotFromMain(parsed.MainStatName, parsed.MainStatValue)
+                                 ?? _lastOcrSlot;
+                _lastOcrSlot = slotKey;
+
+                var (paths, hasImg) = ImageProvider.Resolve("Unknown", slotKey);
+
+                var vm = new ArtifactVM
+                {
+                    SetKey = "Unknown",
+                    SlotKey = slotKey,
+                    Rarity = 5,
+                    Level = parsed.Level,
+                    MainText = parsed.MainStatName ?? "",
+                    CR = parsed.CR,
+                    CD = parsed.CD,
+                    ATKp = parsed.ATKp,
+                    HPp = parsed.HPp,
+                    DEFp = parsed.DEFp,
+                    EM = parsed.EM,
+                    OcrSlotLabel = parsed.SlotLabel,
+                    OcrSetCandidate = parsed.SetNameCandidate,
+                    OcrMainName = parsed.MainStatName,
+                    OcrMainValue = parsed.MainStatValue,
+                    ER = parsed.ER,
+                    HPf = parsed.HPf,
+                    ATKf = parsed.ATKf,
+                    DEFf = parsed.DEFf,
+                    IsLocked = false,
+                    ImagePath = paths.Path,
+                    PlaceholderPath = paths.Placeholder,
+                    HasImage = hasImg,
+                };
+
+                int merged = 0;
+                AddOrMerge(vm, ParsePreset(SelectedPreset), ref merged);
+                ApplyFilter();
+                ApplySort();
+                Raise(nameof(SummaryText));
+                StatusText = merged == 0 ? $"OCR(プリセット)追加: +1 / {preview}" : $"OCR(プリセット)追加: merged / {preview}";
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"OCR preset error: {ex.Message}";
             }
         }
 
@@ -895,5 +1054,67 @@ namespace Gacha.ViewModels
                 StatusText = "OCR領域選択: キャンセル";
             }
         }
+
+        static string? GuessSlotFromMain(string? name, double value)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return null;
+            var raw = name;
+            var s = System.Text.RegularExpressions.Regex.Replace(raw, @"\s+", "").ToLowerInvariant();
+
+            // 花/羽はメインが固定の実数
+            // 花: HP(実数), 羽: ATK(実数)
+            bool hasPercent = raw.Contains('%');
+            if (!hasPercent)
+            {
+                if (s.Contains("hp") || s.Contains("生命")) return "flower";
+                if (s.Contains("atk") || s.Contains("攻撃") || s.Contains("攻击")) return "plume";
+            }
+
+            // 砂：ER/EM は確定、ATK%/HP%/DEF% も候補
+            if (s.Contains("元素チャージ") || s.Contains("energyrecharge") || s.Contains("元素充能")) return "sands";
+            if (s.Contains("元素熟知") || s.Contains("elementalmastery") || s.Contains("元素精通")) return "sands";
+
+            // 冠：会心率/会心ダメ/治療効果は確定
+            if (s.Contains("会心率") || s.Contains("critrate") || s.Contains("暴击率")) return "circlet";
+            if (s.Contains("会心ダメ") || s.Contains("critdmg") || s.Contains("暴击伤害")) return "circlet";
+            if (s.Contains("治療") || s.Contains("治疗") || s.Contains("healing")) return "circlet";
+
+            // 杯：元素/物理ダメージバフは確定
+            if (s.Contains("ダメージ") || s.Contains("傷害") || s.Contains("dmg bonus") || s.Contains("damagebonus")
+                || s.Contains("pyro") || s.Contains("hydro") || s.Contains("electro") || s.Contains("cryo")
+                || s.Contains("geo") || s.Contains("anemo") || s.Contains("dendro") || s.Contains("physical"))
+                return "goblet";
+
+            // 残りの % 系（ATK%/HP%/DEF%）は砂/杯/冠のいずれか → 判定不能なら null
+            return null;
+        }
+
+        public static System.Drawing.Bitmap Preprocess(System.Drawing.Bitmap src)
+        {
+            using var mat = OpenCvSharp.Extensions.BitmapConverter.ToMat(src);
+
+            // グレースケール化
+            Cv2.CvtColor(mat, mat, ColorConversionCodes.BGR2GRAY);
+
+            // コントラスト強調
+            Cv2.ConvertScaleAbs(mat, mat, alpha: 1.4, beta: 20);
+            // ヒストグラム均等化
+            Cv2.EqualizeHist(mat, mat);
+            // 二値化
+            Cv2.AdaptiveThreshold(mat, mat, 255, AdaptiveThresholdTypes.MeanC, ThresholdTypes.BinaryInv, 17, 7);
+            // ノイズ除去
+            var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new OpenCvSharp.Size(2, 2));
+            Cv2.MorphologyEx(mat, mat, MorphTypes.Open, kernel);
+
+            // デバッグ用: 前処理画像を保存
+             Cv2.ImWrite("debug_preprocessed.png", mat);
+
+            return OpenCvSharp.Extensions.BitmapConverter.ToBitmap(mat);
+        }
+        public string OcrLanguageAdvice =>
+    _language == "ja"
+        ? "※日本語UIではOCR精度が低下する場合があります。英語UIでの利用を推奨します。"
+        : "";
     }
+
 }

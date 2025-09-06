@@ -193,8 +193,31 @@
                 <DataGridTextColumn Header="{Binding L_ColHPp}"    Binding="{Binding HPp, StringFormat={}{0:F1}}"  SortMemberPath="HPp"/>
                 <DataGridTextColumn Header="{Binding L_ColDEFp}"   Binding="{Binding DEFp, StringFormat={}{0:F1}}" SortMemberPath="DEFp"/>
                 <DataGridTextColumn Header="{Binding L_ColEM}"     Binding="{Binding EM, StringFormat={}{0:F1}}"   SortMemberPath="EM"/>
-                <DataGridTextColumn Header="{Binding L_ColLock}"   Binding="{Binding IsLocked}"/>                </DataGrid.Columns>
+                <DataGridTextColumn Header="{Binding L_ColLock}"   Binding="{Binding IsLocked}"/>
+				<DataGridTextColumn Header="セット名(候補)" Binding="{Binding OcrSetCandidate}" Width="2*"/>
+				<DataGridTextColumn Header="部位" Binding="{Binding OcrSlotLabel}" Width="*"/>
+				<DataGridTextColumn Header="Lv" Binding="{Binding Level}" Width="50"/>
+				<DataGridTextColumn Header="メイン" Binding="{Binding MainStatDisplay}" Width="1.5*"/>
+				<DataGridTextColumn Header="その他(非スコア)" Binding="{Binding NonScoringSummary}" Width="1.5*"/>
+				<DataGridTextColumn Header="ER" Binding="{Binding ER}" />
+<DataGridTextColumn Header="HP" Binding="{Binding HPf}" />
+<DataGridTextColumn Header="ATK" Binding="{Binding ATKf}" />
+<DataGridTextColumn Header="DEF" Binding="{Binding DEFf}" />
+<DataGridTextColumn Header="Set" Binding="{Binding SetName}" />
+<DataGridTextColumn Header="Slot" Binding="{Binding SlotName}" />
+                </DataGrid.Columns>
             </DataGrid>
+			<Border Background="#80000000" CornerRadius="6" Padding="4"
+		HorizontalAlignment="Left" VerticalAlignment="Top" Margin="4">
+				    <StackPanel>
+					        <TextBlock Text="{Binding OcrSetCandidate}" Foreground="White" FontSize="12"/>
+					        <TextBlock Text="{Binding OcrSlotLabel}" Foreground="White" FontSize="11" Opacity="0.9"/>
+					        <TextBlock Text="{Binding MainStatDisplay}" Foreground="White" FontSize="11" Opacity="0.9"/>
+					       <TextBlock Text="{Binding NonScoringSummary}" Foreground="White" FontSize="10" Opacity="0.8"/>
+					
+				</StackPanel>
+
+			</Border>
         </Grid>
 
         <!-- ステータスバー -->

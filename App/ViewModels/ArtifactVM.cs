@@ -12,7 +12,33 @@ namespace Gacha.ViewModels
 
         void Raise([CallerMemberName] string? n = null) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
+        // --- OCRで拾った確認用の情報（スコア計算には未使用） ---
+        public string? OcrSlotLabel { get; set; }      // 例: 時の砂 / Sands of Eon / 时之沙
+        public string? OcrSetCandidate { get; set; }   // 緑行の直上などから拾った候補文字列
+        public string? OcrMainName { get; set; }       // 例: 元素熟知 / HP% / ATK% など
+        public double OcrMainValue { get; set; }      // 例: 187 / 46.6 など
+                                                      // スコア対象外サブステ（確認用に保持）
+        public double ER { get; set; }               // 元素チャージ効率 %
+        public double HPf { get; set; }               // HP 実数
+        public double ATKf { get; set; }               // 攻撃 実数
+        public double DEFf { get; set; }               // 防御 実数
 
+        // 表示用のまとめ（空なら出さない）
+        public string NonScoringSummary =>
+    string.Join(" / ", new[]
+            {
+                    ER  > 0 ? $"ER {ER:F1}%"   : null,
+                    HPf > 0 ? $"HP {HPf:F0}"   : null,
+                    ATKf> 0 ? $"ATK {ATKf:F0}" : null,
+                    DEFf> 0 ? $"DEF {DEFf:F0}" : null,
+            }.Where(s => s != null)) ?? string.Empty;
+
+        public string MainStatDisplay =>
+    !string.IsNullOrWhiteSpace(MainText)
+                ? MainText
+                : !string.IsNullOrWhiteSpace(OcrMainName)
+                    ? (OcrMainValue > 0 ? $"{OcrMainName} {OcrMainValue}" : OcrMainName!)
+                    : string.Empty;
         // 基本
         public string SetKey { get; init; } = "";
         public string SlotKey { get; init; } = ""; // flower/plume/sands/goblet/circlet
